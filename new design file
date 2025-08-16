@@ -15,7 +15,7 @@ module coffee_machine (
               DISPENSE  = 3'b010,
               NO_MILK   = 3'b011,
               REFUND    = 3'b100;
- 
+
     reg [2:0] state, next_state;
     reg [3:0] total;
     reg [3:0] timeout_counter;
@@ -25,8 +25,7 @@ module coffee_machine (
                             (coin_in==2'b10)?4'd2 :
                             (coin_in==2'b11)?4'd3 : 4'd0;
 
-  --bist seq
-  // State update
+    // State update
     always @(posedge clk or posedge reset) begin
         if (reset) begin
             state <= IDLE;
@@ -81,7 +80,7 @@ module coffee_machine (
 
             DISPENSE: begin
                 dispense = 1;
-              if (total >= 7)  change = total - 7;
+                if (total >= 7) change = total - 7;
                 next_state = IDLE;
             end
 
