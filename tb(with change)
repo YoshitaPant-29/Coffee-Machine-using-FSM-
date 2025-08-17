@@ -1,0 +1,114 @@
+`timescale 1ns/1ps
+
+module tb_coffee_machine;
+
+  // DUT signals
+  reg        clk;
+  reg        reset;
+  reg  [1:0] coin_in;
+  reg        coin_inserted;
+  reg        test;
+  reg        milk_present;
+  wire       dispense;
+  wire [3:0] change;
+
+  // Instantiate DUT
+  coffee_machine dut (
+    .clk(clk),
+    .reset(reset),
+    .coin_in(coin_in),
+    .coin_inserted(coin_inserted),
+    .test(test),
+    .milk_present(milk_present),
+    .dispense(dispense),
+    .change(change)
+  );
+
+  // Clock generation
+  always #5 clk = ~clk;
+
+  // Task: insert a coin (hold for one full cycle)
+  task insert_coin;
+    input [1:0] c;
+    begin
+      coin_in = c;
+      coin_inserted = 1;
+      @(posedge clk); // hold high for one cycle
+      @(posedge clk);
+      coin_inserted = 0;
+      @(posedge clk);
+    end
+  endtask
+
+  initial begin
+    // Dump waveform
+    $dumpfile("dump.vcd");
+    $dumpvars(0, tb_coffee_machine);
+
+    // Init
+    clk = 0;
+    reset = 1;
+    coin_in = 2'b00;
+    coin_inserted = 0;
+    test = 0;
+    milk_present = 1;
+    @(posedge clk);
+    reset = 0;
+
+    // 1. Power ON/OFF test
+    $display("\n[TEST 1] Power OFF → ON check");
+    test = 0; insert_coin(2'b01); // should be ignored
+    test = 1; @(posedge clk);
+
+    // 2. Exact payment (7)
+    $display("\n[TEST 2] Exact Payment (7)");
+    insert_coin(2'b11); // +3
+    insert_coin(2'b11); // +3
+    insert_coin(2'b01); // +1 = 7
+    @(posedge clk);
+    $display("Dispense=%0d, Change=%0d", dispense, change);
+
+    // 3. Overpayment (8) with change
+    $display("\n[TEST 3] Overpayment (8)");
+    insert_coin(2'b11); // +3
+    insert_coin(2'b11); // +3
+    insert_coin(2'b10); // +2 = 8
+    @(posedge clk);
+    $display("Dispense=%0d, Change=%0d", dispense, change);
+
+    // 4. Back-to-back orders
+    $display("\n[TEST 4] Back-to-back orders");
+    insert_coin(2'b11); // +3
+    insert_coin(2'b11); // +3
+    insert_coin(2'b11); // +3 = 9
+    @(posedge clk);
+    $display("Dispense=%0d, Change=%0d", dispense, change);
+
+    insert_coin(2'b11); // +3
+    insert_coin(2'b10); // +2
+    insert_coin(2'b10); // +2 = 7
+    @(posedge clk);
+    $display("Dispense=%0d, Change=%0d", dispense, change);
+
+    // 5. No milk case
+    $display("\n[TEST 5] No milk case");
+    milk_present = 0;
+    insert_coin(2'b11); // +3
+    insert_coin(2'b11); // +3
+    insert_coin(2'b01); // +1 = 7
+    @(posedge clk);
+    $display("Dispense=%0d, Change=%0d", dispense, change);
+    milk_present = 1; // restore
+
+    // 6. Refund: 6 rupees + timeout
+    $display("\n[TEST 6] Refund on timeout (6 rupees)");
+    insert_coin(2'b11); // +3
+    insert_coin(2'b11); // +3 = 6
+    repeat (5) @(posedge clk); // wait for timeout
+    $display("Dispense=%0d, Change=%0d", dispense, change);
+
+    $display("\nAll tests completed!");
+    $finish;
+  end
+
+endmodule
